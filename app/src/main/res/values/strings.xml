@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">HW3</string>
+    <string name="picture_url_key">http://rain.ifmo.ru/~maevsky/android/enormous.jpg</string>
+    <string name="no_pic">Not yet!</string>
+    <string name="loading">Loading…</string>
+    <string name="done">done.</string>
+    <string name="error">Picture is too enormous!</string>
+    <string name="pic_description">ЗДОРОВЕННАЯ КАРТИНКА</string>
+</resources>
