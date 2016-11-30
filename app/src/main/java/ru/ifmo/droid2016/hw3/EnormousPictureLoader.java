@@ -1,7 +1,10 @@
 package ru.ifmo.droid2016.hw3;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.AsyncTask;
 import android.os.IBinder;
 import android.util.Log;
@@ -19,14 +22,42 @@ public class EnormousPictureLoader extends Service {
     private static final int MB = 8388608; // 1 MB
     private String PIC = null;
     private AtomicBoolean busy = new AtomicBoolean(false);
+    private BroadcastReceiver receiver = null;
+    private Callback<Boolean> saved = null;
 
     public EnormousPictureLoader() {
         super();
         Log.d("SRV", "CREAT");
     }
 
-    private void init() {
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(receiver);
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
         PIC = getFilesDir().toString() + "/gosha.jpg";
+        receiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (saved != null) loadPicture(new Callback<Byte>() {
+                    @Override
+                    public void call(Byte arg) {
+
+                    }
+                }, new Callback<Boolean>() {
+                    @Override
+                    public void call(Boolean arg) {
+                        saved.call(arg);
+                    }
+                });
+            }
+        };
+        IntentFilter fil = new IntentFilter(Intent.ACTION_AIRPLANE_MODE_CHANGED);
+        registerReceiver(receiver, fil);
     }
 
     private boolean existsPic() {
@@ -35,38 +66,40 @@ public class EnormousPictureLoader extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d("SRV", "start");
-        if (PIC == null) init();
         return START_STICKY;
     }
 
     @Override
     public IBinder onBind(Intent intent) {
-        Log.d("SRV", "onBind");
-        if (PIC == null) init();
         return new Binder();
+    }
+
+    private boolean loadPicture(Callback<Byte> progress, Callback<Boolean> onFinish) {
+        if (busy.get()) {
+            return false;
+        }
+        if (existsPic()) onFinish.call(true);
+        else {
+            busy.set(true);
+            new Downloader(progress, onFinish).execute(getResources().getString(R.string.picture_url_key));
+        }
+        return true;
+    }
+
+    public interface Callback<A> {
+        void call(A arg);
     }
 
     public class Binder extends android.os.Binder {
         public final File pictureFile = new File(PIC);
 
         public boolean getPicture(Callback<Byte> progress, Callback<Boolean> onFinish) {
-            Log.d("BIND", "getPicture");
-            if (busy.get()) {
-                return false;
-            }
-            if (existsPic()) onFinish.call(true);
-            else {
-                busy.set(true);
-                Log.d("BIND", "download");
-                new Downloader(progress, onFinish).execute(getResources().getString(R.string.picture_url_key));
-            }
-            return true;
+            return loadPicture(progress, onFinish);
         }
-    }
 
-    public interface Callback<A> {
-        void call(A arg);
+        public void doWhenPicWillBeLoaded(Callback<Boolean> callback) {
+            saved = callback;
+        }
     }
 
     private class Downloader extends AsyncTask<String, Byte, Boolean> {
@@ -86,7 +119,7 @@ public class EnormousPictureLoader extends Service {
             final URL url;
             try {
                 url = new URL(params[0]);
-                        //intent.getStringExtra(getResources().getString(R.string.picture_url_key)));
+                //intent.getStringExtra(getResources().getString(R.string.picture_url_key)));
             } catch (MalformedURLException e) {
                 Log.wtf("MF URL", e.getMessage());
                 return false;

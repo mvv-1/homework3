@@ -5,9 +5,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
@@ -18,6 +18,7 @@ public class MainActivity extends AppCompatActivity {
     ServiceConnection conn;
     TextView text;
     ImageView pic;
+    EnormousPictureLoader.Callback<Boolean> whenPicLoaded;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,8 +26,21 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         text = (TextView) findViewById(R.id.text);
         pic = (ImageView) findViewById(R.id.enormous_pic);
+        whenPicLoaded = new EnormousPictureLoader.Callback<Boolean>() {
+            @Override
+            public void call(Boolean arg) {
+                if (arg) {
+                    text.setText(getResources().getString(R.string.done));
+                    pic.setImageURI(Uri.fromFile(binder.pictureFile));
+                } else {
+                    text.setText(getResources().getString(R.string.error));
+                }
+            }
+        };
         text.setText(getResources().getString(R.string.no_pic));
         repair();
+        // just because
+        loadContent(null);
     }
 
     private void repair() {
@@ -35,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onServiceConnected(ComponentName name, IBinder service) {
                 binder = (EnormousPictureLoader.Binder) service;
+                binder.doWhenPicWillBeLoaded(whenPicLoaded);
             }
 
             @Override
@@ -55,17 +70,7 @@ public class MainActivity extends AppCompatActivity {
             public void call(Byte arg) {
                 text.setText(getResources().getString(R.string.loading) + ' ' + arg + '%');
             }
-        }, new EnormousPictureLoader.Callback<Boolean>() {
-            @Override
-            public void call(Boolean arg) {
-                if (arg) {
-                    text.setText(getResources().getString(R.string.done));
-                    pic.setImageURI(Uri.fromFile(binder.pictureFile));
-                } else {
-                    text.setText(getResources().getString(R.string.error));
-                }
-            }
-        });
+        }, whenPicLoaded);
     }
 
     @Override
